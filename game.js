@@ -1,541 +1,1558 @@
+/* =====================================================
+   ADONAI
+   3D WORLD FOUNDATION
+===================================================== */
+
 const canvas = document.getElementById("world");
-const ctx = canvas.getContext("2d");
 
 const pauseBtn = document.getElementById("pauseBtn");
 const godModeBtn = document.getElementById("godModeBtn");
 const playModeBtn = document.getElementById("playModeBtn");
-const selectedName = document.getElementById("selectedName");
-const selectedInfo = document.getElementById("selectedInfo");
-const playCharacterBtn = document.getElementById("playCharacterBtn");
+
+const selectedName =
+    document.getElementById("selectedName");
+
+const selectedInfo =
+    document.getElementById("selectedInfo");
+
+const playCharacterBtn =
+    document.getElementById("playCharacterBtn");
+
+const characterControls =
+    document.getElementById("characterControls");
+
+
+/* =====================================================
+   THREE.JS SETUP
+===================================================== */
+
+const scene = new THREE.Scene();
+
+scene.background =
+    new THREE.Color(0x87b9e8);
+
+
+const camera =
+    new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        5000
+    );
+
+
+camera.position.set(
+    0,
+    38,
+    42
+);
+
+
+const renderer =
+    new THREE.WebGLRenderer({
+        canvas,
+        antialias: true
+    });
+
+
+renderer.setPixelRatio(
+    Math.min(window.devicePixelRatio, 2)
+);
+
+renderer.setSize(
+    window.innerWidth,
+    window.innerHeight
+);
+
+renderer.shadowMap.enabled = true;
+
+renderer.shadowMap.type =
+    THREE.PCFSoftShadowMap;
+
+
+/* =====================================================
+   LIGHTING
+===================================================== */
+
+const ambientLight =
+    new THREE.HemisphereLight(
+        0xffffff,
+        0x667755,
+        2
+    );
+
+scene.add(ambientLight);
+
+
+const sun =
+    new THREE.DirectionalLight(
+        0xffffff,
+        3
+    );
+
+sun.position.set(
+    100,
+    150,
+    80
+);
+
+sun.castShadow = true;
+
+sun.shadow.mapSize.width = 2048;
+sun.shadow.mapSize.height = 2048;
+
+sun.shadow.camera.left = -300;
+sun.shadow.camera.right = 300;
+sun.shadow.camera.top = 300;
+sun.shadow.camera.bottom = -300;
+
+scene.add(sun);
+
+
+/* =====================================================
+   GAME STATE
+===================================================== */
 
 let paused = false;
+
 let mode = "god";
+
 let selected = null;
+
 let playingAs = null;
 
 const world = {
-    width: 5000,
-    height: 3500,
+
+    width: 120,
+
+    depth: 120,
+
     people: [],
+
+    animals: [],
+
     trees: [],
+
     houses: [],
-    water: []
+
+    objects: []
+
 };
 
-const camera = {
-    x: 2500,
-    y: 1750,
-    zoom: 1
+
+/* =====================================================
+   MATERIALS
+===================================================== */
+
+const materials = {
+
+    grass:
+        new THREE.MeshStandardMaterial({
+            color: 0x6fa85b
+        }),
+
+    grassDark:
+        new THREE.MeshStandardMaterial({
+            color: 0x4f8b49
+        }),
+
+    dirt:
+        new THREE.MeshStandardMaterial({
+            color: 0x9a7048
+        }),
+
+    water:
+        new THREE.MeshStandardMaterial({
+            color: 0x398bd0,
+            transparent: true,
+            opacity: 0.82
+        }),
+
+    wood:
+        new THREE.MeshStandardMaterial({
+            color: 0x80532f
+        }),
+
+    leaves:
+        new THREE.MeshStandardMaterial({
+            color: 0x39753b
+        }),
+
+    stone:
+        new THREE.MeshStandardMaterial({
+            color: 0x777777
+        }),
+
+    roof:
+        new THREE.MeshStandardMaterial({
+            color: 0x7b4038
+        }),
+
+    skin:
+        new THREE.MeshStandardMaterial({
+            color: 0xd69a6a
+        }),
+
+    clothing:
+        new THREE.MeshStandardMaterial({
+            color: 0x4c62d1
+        }),
+
+    lion:
+        new THREE.MeshStandardMaterial({
+            color: 0xc8893f
+        }),
+
+    tiger:
+        new THREE.MeshStandardMaterial({
+            color: 0xd98a35
+        }),
+
+    white:
+        new THREE.MeshStandardMaterial({
+            color: 0xffffff
+        }),
+
+    black:
+        new THREE.MeshStandardMaterial({
+            color: 0x151515
+        })
+
 };
 
-const keys = {};
+
+/* =====================================================
+   HELPERS
+===================================================== */
+
+function random(min, max) {
+
+    return Math.random() *
+        (max - min) +
+        min;
+
+}
+
+
+function randomInt(min, max) {
+
+    return Math.floor(
+        random(min, max)
+    );
+
+}
+
+
+function createBox(
+    width,
+    height,
+    depth,
+    material
+) {
+
+    const geometry =
+        new THREE.BoxGeometry(
+            width,
+            height,
+            depth
+        );
+
+    const mesh =
+        new THREE.Mesh(
+            geometry,
+            material
+        );
+
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    return mesh;
+
+}
+
+
+/* =====================================================
+   TERRAIN
+===================================================== */
+
+function createTerrain() {
+
+    const terrain =
+        createBox(
+            world.width,
+            2,
+            world.depth,
+            materials.grass
+        );
+
+    terrain.position.set(
+        0,
+        -1,
+        0
+    );
+
+    terrain.receiveShadow = true;
+
+    scene.add(terrain);
+
+
+    /*
+      Small dirt patches create
+      the blocky sandbox look.
+    */
+
+    for (let i = 0; i < 35; i++) {
+
+        const patch =
+            createBox(
+                random(4, 12),
+                0.15,
+                random(4, 12),
+                materials.dirt
+            );
+
+        patch.position.set(
+            random(
+                -world.width / 2,
+                world.width / 2
+            ),
+
+            0.05,
+
+            random(
+                -world.depth / 2,
+                world.depth / 2
+            )
+        );
+
+        scene.add(patch);
+
+    }
+
+
+    /* Water */
+
+    for (let i = 0; i < 4; i++) {
+
+        const water =
+            createBox(
+                random(12, 25),
+                0.25,
+                random(12, 25),
+                materials.water
+            );
+
+        water.position.set(
+            random(-40, 40),
+            0.15,
+            random(-40, 40)
+        );
+
+        scene.add(water);
+
+    }
+
+}
+
+
+/* =====================================================
+   TREES
+===================================================== */
+
+function createTree(x, z) {
+
+    const group =
+        new THREE.Group();
+
+
+    const trunk =
+        createBox(
+            1.1,
+            4,
+            1.1,
+            materials.wood
+        );
+
+    trunk.position.y = 2;
+
+    group.add(trunk);
+
+
+    const leaves =
+        createBox(
+            4,
+            4,
+            4,
+            materials.leaves
+        );
+
+    leaves.position.y = 5;
+
+    group.add(leaves);
+
+
+    group.position.set(
+        x,
+        0,
+        z
+    );
+
+    scene.add(group);
+
+    world.trees.push(group);
+
+}
+
+
+function createTrees() {
+
+    for (let i = 0; i < 130; i++) {
+
+        createTree(
+            random(-55, 55),
+            random(-55, 55)
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   HOUSES
+===================================================== */
+
+function createHouse(x, z) {
+
+    const group =
+        new THREE.Group();
+
+
+    const body =
+        createBox(
+            6,
+            5,
+            6,
+            materials.stone
+        );
+
+    body.position.y = 2.5;
+
+    group.add(body);
+
+
+    const roof =
+        createBox(
+            7,
+            1.5,
+            7,
+            materials.roof
+        );
+
+    roof.position.y = 5.5;
+
+    roof.rotation.y =
+        Math.PI / 4;
+
+    group.add(roof);
+
+
+    group.position.set(
+        x,
+        0,
+        z
+    );
+
+    scene.add(group);
+
+    world.houses.push(group);
+
+}
+
+
+function createHouses() {
+
+    for (let i = 0; i < 15; i++) {
+
+        createHouse(
+            random(-40, 40),
+            random(-40, 40)
+        );
+
+    }
+
+}
+
+
+/* =====================================================
+   HUMAN CHARACTERS
+===================================================== */
 
 const names = [
-    "Joseph", "Marcus", "Daniel", "Sarah", "David",
-    "Isaiah", "Layla", "Andrew", "Michael", "Samuel",
-    "Jacob", "Joshua", "Elijah", "Noah", "Benjamin",
-    "Nathan", "Ethan", "Caleb", "Miriam", "Ruth"
+
+    "Joseph",
+    "Marcus",
+    "Daniel",
+    "Sarah",
+    "David",
+    "Isaiah",
+    "Layla",
+    "Andrew",
+    "Michael",
+    "Samuel",
+    "Jacob",
+    "Joshua",
+    "Elijah",
+    "Noah",
+    "Benjamin",
+    "Nathan",
+    "Ethan",
+    "Caleb",
+    "Miriam",
+    "Ruth"
+
 ];
 
+
 const jobs = [
+
     "Farmer",
     "Fisher",
     "Builder",
     "Hunter",
     "Warrior",
     "Gatherer"
+
 ];
 
-function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+
+const personalities = [
+
+    "Friendly",
+    "Brave",
+    "Curious",
+    "Shy",
+    "Aggressive",
+    "Playful",
+    "Calm",
+    "Ambitious"
+
+];
+
+
+function createPerson(index) {
+
+    const group =
+        new THREE.Group();
+
+
+    /* Legs */
+
+    const legs =
+        createBox(
+            1.3,
+            2.5,
+            1.3,
+            materials.clothing
+        );
+
+    legs.position.y =
+        1.25;
+
+    group.add(legs);
+
+
+    /* Body */
+
+    const body =
+        createBox(
+            2,
+            2.4,
+            1.6,
+            materials.clothing
+        );
+
+    body.position.y =
+        3.6;
+
+    group.add(body);
+
+
+    /* Head */
+
+    const head =
+        createBox(
+            1.7,
+            1.7,
+            1.7,
+            materials.skin
+        );
+
+    head.position.y =
+        5.7;
+
+    group.add(head);
+
+
+    group.position.set(
+        random(-45, 45),
+        0,
+        random(-45, 45)
+    );
+
+
+    scene.add(group);
+
+
+    const person = {
+
+        id: index,
+
+        name:
+            names[
+                index %
+                names.length
+            ],
+
+        x:
+            group.position.x,
+
+        z:
+            group.position.z,
+
+        age:
+            randomInt(18, 55),
+
+        health: 100,
+
+        hunger:
+            randomInt(40, 90),
+
+        happiness:
+            randomInt(40, 100),
+
+        job:
+            jobs[
+                randomInt(
+                    0,
+                    jobs.length
+                )
+            ],
+
+        personality:
+            personalities[
+                randomInt(
+                    0,
+                    personalities.length
+                )
+            ],
+
+        decision:
+            "Wandering",
+
+        speed:
+            random(.015, .035),
+
+        targetX: null,
+
+        targetZ: null,
+
+        alive: true,
+
+        mesh: group
+
+    };
+
+
+    world.people.push(
+        person
+    );
+
 }
 
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
+
+/* =====================================================
+   ANIMALS
+===================================================== */
+
+function createAnimal(
+    species,
+    x,
+    z
+) {
+
+    const group =
+        new THREE.Group();
 
 
-// --------------------------------------------------
-// WORLD GENERATION
-// --------------------------------------------------
+    let material =
+        materials.lion;
 
-function random(min, max) {
-    return Math.random() * (max - min) + min;
+
+    if (species === "Tiger") {
+        material =
+            materials.tiger;
+    }
+
+
+    if (species === "Deer") {
+        material =
+            materials.white;
+    }
+
+
+    const body =
+        createBox(
+            3,
+            1.5,
+            1.5,
+            material
+        );
+
+    body.position.y =
+        1.5;
+
+    group.add(body);
+
+
+    const head =
+        createBox(
+            1.4,
+            1.4,
+            1.4,
+            material
+        );
+
+    head.position.set(
+        1.7,
+        2,
+        0
+    );
+
+    group.add(head);
+
+
+    const legPositions = [
+
+        [-1, .7],
+        [1, .7],
+        [-1, -.7],
+        [1, -.7]
+
+    ];
+
+
+    for (
+        const [lx, lz]
+        of legPositions
+    ) {
+
+        const leg =
+            createBox(
+                .5,
+                1.4,
+                .5,
+                material
+            );
+
+        leg.position.set(
+            lx,
+            .7,
+            lz
+        );
+
+        group.add(leg);
+
+    }
+
+
+    group.position.set(
+        x,
+        0,
+        z
+    );
+
+
+    scene.add(group);
+
+
+    const animal = {
+
+        id:
+            crypto.randomUUID(),
+
+        species,
+
+        x,
+
+        z,
+
+        health: 100,
+
+        hunger:
+            randomInt(40, 100),
+
+        speed:
+            random(.01, .025),
+
+        targetX: null,
+
+        targetZ: null,
+
+        alive: true,
+
+        mesh: group
+
+    };
+
+
+    world.animals.push(
+        animal
+    );
+
 }
 
-function randomInt(min, max) {
-    return Math.floor(random(min, max));
+
+function createAnimals() {
+
+    for (let i = 0; i < 12; i++) {
+
+        createAnimal(
+            "Deer",
+            random(-45, 45),
+            random(-45, 45)
+        );
+
+    }
+
+
+    for (let i = 0; i < 5; i++) {
+
+        createAnimal(
+            "Lion",
+            random(-45, 45),
+            random(-45, 45)
+        );
+
+    }
+
+
+    for (let i = 0; i < 5; i++) {
+
+        createAnimal(
+            "Tiger",
+            random(-45, 45),
+            random(-45, 45)
+        );
+
+    }
+
 }
+
+
+/* =====================================================
+   WORLD CREATION
+===================================================== */
 
 function createWorld() {
 
-    world.people = [];
-    world.trees = [];
-    world.houses = [];
-    world.water = [];
+    createTerrain();
 
-    // Water
-    for (let i = 0; i < 25; i++) {
-        world.water.push({
-            x: random(200, world.width - 200),
-            y: random(200, world.height - 200),
-            radius: random(100, 350)
-        });
+    createTrees();
+
+    createHouses();
+
+
+    for (let i = 0; i < 60; i++) {
+
+        createPerson(i);
+
     }
 
-    // Trees
-    for (let i = 0; i < 600; i++) {
-        world.trees.push({
-            x: random(50, world.width - 50),
-            y: random(50, world.height - 50),
-            size: random(15, 32)
-        });
-    }
 
-    // Houses
-    for (let i = 0; i < 45; i++) {
-        world.houses.push({
-            x: random(250, world.width - 250),
-            y: random(250, world.height - 250),
-            size: random(35, 55)
-        });
-    }
+    createAnimals();
 
-    // People
-    for (let i = 0; i < 120; i++) {
-
-        const person = {
-            id: i,
-
-            name: names[i % names.length],
-
-            x: random(100, world.width - 100),
-            y: random(100, world.height - 100),
-
-            age: randomInt(18, 55),
-
-            health: 100,
-            hunger: randomInt(30, 90),
-            happiness: randomInt(40, 100),
-
-            job: jobs[randomInt(0, jobs.length)],
-
-            speed: random(0.4, 1.2),
-
-            targetX: null,
-            targetY: null,
-
-            decision: "Wandering",
-
-            alive: true,
-
-            color: Math.random() > 0.5 ? "#d14c4c" : "#4c62d1"
-        };
-
-        world.people.push(person);
-    }
 }
+
 
 createWorld();
 
 
-// --------------------------------------------------
-// CAMERA
-// --------------------------------------------------
+/* =====================================================
+   CAMERA
+===================================================== */
 
-function screenToWorld(screenX, screenY) {
-
-    return {
-        x: camera.x + (screenX - canvas.width / 2) / camera.zoom,
-        y: camera.y + (screenY - canvas.height / 2) / camera.zoom
-    };
-
-}
-
-function worldToScreen(worldX, worldY) {
-
-    return {
-        x: canvas.width / 2 + (worldX - camera.x) * camera.zoom,
-        y: canvas.height / 2 + (worldY - camera.y) * camera.zoom
-    };
-
-}
-
-
-// --------------------------------------------------
-// ZOOM
-// --------------------------------------------------
-
-function setZoom(value, centerX, centerY) {
-
-    const oldZoom = camera.zoom;
-
-    camera.zoom = Math.max(0.35, Math.min(3.5, value));
-
-    if (centerX !== undefined) {
-
-        const before = screenToWorld(centerX, centerY);
-
-        camera.x += before.x - screenToWorld(centerX, centerY).x;
-        camera.y += before.y - screenToWorld(centerX, centerY).y;
-
-    }
-
-    if (oldZoom !== camera.zoom) {
-        render();
-    }
-}
-
-
-// Mouse wheel zoom
-
-canvas.addEventListener("wheel", function(e) {
-
-    e.preventDefault();
-
-    const direction = e.deltaY < 0 ? 1.1 : 0.9;
-
-    setZoom(
-        camera.zoom * direction,
-        e.clientX,
-        e.clientY
+let cameraTarget =
+    new THREE.Vector3(
+        0,
+        0,
+        0
     );
 
-}, { passive: false });
+
+let cameraDistance = 45;
+
+let cameraAngle = 0.7;
+
+let cameraHeight = 28;
 
 
-// Pinch zoom
+function updateCamera() {
 
-let touches = [];
-let pinchDistance = null;
+    if (
+        mode === "character" &&
+        playingAs
+    ) {
 
-canvas.addEventListener("touchstart", function(e) {
+        /*
+          Temporary third-person
+          follow camera.
 
-    touches = [...e.touches];
+          First-person camera will
+          be added in the next stage.
+        */
 
-    if (touches.length === 2) {
+        const p =
+            playingAs.mesh.position;
 
-        pinchDistance = Math.hypot(
-            touches[0].clientX - touches[1].clientX,
-            touches[0].clientY - touches[1].clientY
+        camera.position.set(
+            p.x,
+            p.y + 12,
+            p.z + 18
         );
+
+        camera.lookAt(
+            p.x,
+            p.y + 3,
+            p.z
+        );
+
+        return;
 
     }
 
-}, { passive: false });
+
+    const x =
+        cameraTarget.x +
+        Math.sin(cameraAngle) *
+        cameraDistance;
+
+    const z =
+        cameraTarget.z +
+        Math.cos(cameraAngle) *
+        cameraDistance;
 
 
-canvas.addEventListener("touchmove", function(e) {
+    camera.position.set(
+        x,
+        cameraHeight,
+        z
+    );
 
-    if (e.touches.length === 2) {
 
-        const a = e.touches[0];
-        const b = e.touches[1];
+    camera.lookAt(
+        cameraTarget
+    );
 
-        const distance = Math.hypot(
-            a.clientX - b.clientX,
-            a.clientY - b.clientY
+}
+
+
+/* =====================================================
+   CAMERA TOUCH / MOUSE
+===================================================== */
+
+let dragging = false;
+
+let lastPointerX = 0;
+
+let lastPointerY = 0;
+
+
+canvas.addEventListener(
+    "pointerdown",
+    event => {
+
+        dragging = true;
+
+        lastPointerX =
+            event.clientX;
+
+        lastPointerY =
+            event.clientY;
+
+    }
+);
+
+
+canvas.addEventListener(
+    "pointermove",
+    event => {
+
+        if (!dragging) return;
+
+        const dx =
+            event.clientX -
+            lastPointerX;
+
+        const dy =
+            event.clientY -
+            lastPointerY;
+
+
+        if (
+            mode === "god"
+        ) {
+
+            cameraAngle -=
+                dx * 0.008;
+
+            cameraHeight +=
+                dy * 0.12;
+
+            cameraHeight =
+                Math.max(
+                    8,
+                    Math.min(
+                        80,
+                        cameraHeight
+                    )
+                );
+
+        }
+
+
+        lastPointerX =
+            event.clientX;
+
+        lastPointerY =
+            event.clientY;
+
+    }
+);
+
+
+canvas.addEventListener(
+    "pointerup",
+    () => {
+
+        dragging = false;
+
+    }
+);
+
+
+canvas.addEventListener(
+    "pointercancel",
+    () => {
+
+        dragging = false;
+
+    }
+);
+
+
+/* =====================================================
+   ZOOM
+===================================================== */
+
+canvas.addEventListener(
+    "wheel",
+    event => {
+
+        event.preventDefault();
+
+        cameraDistance +=
+            event.deltaY * 0.04;
+
+        cameraDistance =
+            Math.max(
+                8,
+                Math.min(
+                    100,
+                    cameraDistance
+                )
+            );
+
+    },
+    {
+        passive: false
+    }
+);
+
+
+/* =====================================================
+   CHARACTER SELECTION
+===================================================== */
+
+const raycaster =
+    new THREE.Raycaster();
+
+const mouse =
+    new THREE.Vector2();
+
+
+canvas.addEventListener(
+    "click",
+    event => {
+
+        mouse.x =
+            (event.clientX /
+                window.innerWidth) *
+                2 - 1;
+
+        mouse.y =
+            -(event.clientY /
+                window.innerHeight) *
+                2 + 1;
+
+
+        raycaster.setFromCamera(
+            mouse,
+            camera
         );
 
-        if (pinchDistance) {
 
-            const scale = distance / pinchDistance;
+        const objects = [];
 
-            setZoom(
-                camera.zoom * scale,
-                (a.clientX + b.clientX) / 2,
-                (a.clientY + b.clientY) / 2
+
+        for (
+            const person
+            of world.people
+        ) {
+
+            if (
+                person.alive
+            ) {
+
+                objects.push(
+                    ...person.mesh.children
+                );
+
+            }
+
+        }
+
+
+        for (
+            const animal
+            of world.animals
+        ) {
+
+            if (
+                animal.alive
+            ) {
+
+                objects.push(
+                    ...animal.mesh.children
+                );
+
+            }
+
+        }
+
+
+        const hits =
+            raycaster.intersectObjects(
+                objects
+            );
+
+
+        if (!hits.length)
+            return;
+
+
+        const object =
+            hits[0].object;
+
+
+        let foundPerson =
+            world.people.find(
+                p =>
+                    p.mesh ===
+                    object.parent
+            );
+
+
+        if (!foundPerson) {
+
+            foundPerson =
+                world.people.find(
+                    p =>
+                        p.mesh.children.includes(
+                            object
+                        )
+                );
+
+        }
+
+
+        if (foundPerson) {
+
+            selectCharacter(
+                foundPerson
+            );
+
+            return;
+
+        }
+
+
+        const foundAnimal =
+            world.animals.find(
+                a =>
+                    a.mesh ===
+                    object.parent ||
+                    a.mesh.children.includes(
+                        object
+                    )
+            );
+
+
+        if (foundAnimal) {
+
+            selectAnimal(
+                foundAnimal
             );
 
         }
 
-        pinchDistance = distance;
-
-        e.preventDefault();
     }
-
-}, { passive: false });
-
-
-// --------------------------------------------------
-// CAMERA DRAGGING
-// --------------------------------------------------
-
-let dragging = false;
-let lastX = 0;
-let lastY = 0;
-
-canvas.addEventListener("pointerdown", function(e) {
-
-    dragging = true;
-
-    lastX = e.clientX;
-    lastY = e.clientY;
-
-});
-
-canvas.addEventListener("pointermove", function(e) {
-
-    if (!dragging) return;
-
-    const dx = e.clientX - lastX;
-    const dy = e.clientY - lastY;
-
-    camera.x -= dx / camera.zoom;
-    camera.y -= dy / camera.zoom;
-
-    lastX = e.clientX;
-    lastY = e.clientY;
-
-});
-
-canvas.addEventListener("pointerup", function() {
-    dragging = false;
-});
-
-canvas.addEventListener("pointercancel", function() {
-    dragging = false;
-});
+);
 
 
-// --------------------------------------------------
-// SELECT CHARACTER
-// --------------------------------------------------
-
-canvas.addEventListener("click", function(e) {
-
-    const pos = screenToWorld(e.clientX, e.clientY);
-
-    let closest = null;
-    let closestDistance = 30 / camera.zoom;
-
-    for (const person of world.people) {
-
-        if (!person.alive) continue;
-
-        const distance = Math.hypot(
-            person.x - pos.x,
-            person.y - pos.y
-        );
-
-        if (distance < closestDistance) {
-
-            closest = person;
-            closestDistance = distance;
-
-        }
-
-    }
-
-    if (closest) {
-        selectCharacter(closest);
-    }
-
-});
+/* =====================================================
+   SELECT PERSON
+===================================================== */
 
 function selectCharacter(person) {
 
     selected = person;
 
-    selectedName.textContent = person.name;
+    selectedName.textContent =
+        person.name;
+
 
     selectedInfo.innerHTML = `
+
+        👤 Human<br>
         Age: ${Math.floor(person.age)}<br>
         Job: ${person.job}<br>
+        Personality: ${person.personality}<br>
         Health: ${Math.floor(person.health)}%<br>
         Hunger: ${Math.floor(person.hunger)}%<br>
         Happiness: ${Math.floor(person.happiness)}%<br>
         Decision: ${person.decision}
+
     `;
+
+
+    playCharacterBtn.hidden =
+        false;
 
 }
 
 
-// --------------------------------------------------
-// CHARACTER CONTROL
-// --------------------------------------------------
+/* =====================================================
+   SELECT ANIMAL
+===================================================== */
 
-playCharacterBtn.addEventListener("click", function() {
+function selectAnimal(animal) {
 
-    if (!selected) return;
-
-    playingAs = selected;
-    mode = "character";
-
-    updateModeButtons();
-
-});
+    selected = animal;
 
 
-// --------------------------------------------------
-// MODE BUTTONS
-// --------------------------------------------------
+    selectedName.textContent =
+        animal.species;
 
-godModeBtn.addEventListener("click", function() {
 
-    mode = "god";
-    playingAs = null;
+    selectedInfo.innerHTML = `
 
-    updateModeButtons();
+        🐾 ${animal.species}<br>
+        Health: ${Math.floor(animal.health)}%<br>
+        Hunger: ${Math.floor(animal.hunger)}%
 
-});
+    `;
 
-playModeBtn.addEventListener("click", function() {
 
-    if (!selected) return;
+    playCharacterBtn.hidden =
+        true;
 
-    mode = "character";
-    playingAs = selected;
+}
 
-    updateModeButtons();
 
-});
+/* =====================================================
+   PLAY AS
+===================================================== */
+
+playCharacterBtn.addEventListener(
+    "click",
+    () => {
+
+        if (!selected)
+            return;
+
+
+        if (
+            !selected.mesh
+        )
+            return;
+
+
+        playingAs =
+            selected;
+
+
+        mode =
+            "character";
+
+
+        characterControls.classList.remove(
+            "hidden"
+        );
+
+
+        updateModeButtons();
+
+    }
+);
+
+
+/* =====================================================
+   MODE BUTTONS
+===================================================== */
+
+godModeBtn.addEventListener(
+    "click",
+    () => {
+
+        mode = "god";
+
+        playingAs = null;
+
+        characterControls.classList.add(
+            "hidden"
+        );
+
+        updateModeButtons();
+
+    }
+);
+
+
+playModeBtn.addEventListener(
+    "click",
+    () => {
+
+        if (!selected)
+            return;
+
+
+        playingAs =
+            selected;
+
+        mode =
+            "character";
+
+        characterControls.classList.remove(
+            "hidden"
+        );
+
+        updateModeButtons();
+
+    }
+);
+
 
 function updateModeButtons() {
 
     if (mode === "god") {
 
-        godModeBtn.innerHTML = "👑 God Mode: ON";
-        playModeBtn.innerHTML = "🎮 Character Mode";
+        godModeBtn.classList.add(
+            "active"
+        );
+
+        playModeBtn.classList.remove(
+            "active"
+        );
 
     } else {
 
-        godModeBtn.innerHTML = "👑 God Mode";
-        playModeBtn.innerHTML = "🎮 Character Mode: ON";
+        godModeBtn.classList.remove(
+            "active"
+        );
+
+        playModeBtn.classList.add(
+            "active"
+        );
 
     }
 
 }
 
 
-// --------------------------------------------------
-// PAUSE
-// --------------------------------------------------
+/* =====================================================
+   PAUSE
+===================================================== */
 
-pauseBtn.addEventListener("click", function() {
+pauseBtn.addEventListener(
+    "click",
+    () => {
 
-    paused = !paused;
+        paused =
+            !paused;
 
-    pauseBtn.textContent = paused ? "▶" : "Ⅱ";
+        pauseBtn.textContent =
+            paused
+                ? "▶"
+                : "Ⅱ";
 
-});
+    }
+);
 
 
-// --------------------------------------------------
-// AI
-// --------------------------------------------------
+/* =====================================================
+   AI PEOPLE
+===================================================== */
 
 function updatePeople() {
 
-    for (const person of world.people) {
+    for (
+        const person
+        of world.people
+    ) {
 
-        if (!person.alive) continue;
+        if (
+            !person.alive
+        )
+            continue;
 
-        // Player controlled character
 
-        if (person === playingAs) {
+        if (
+            person === playingAs
+        ) {
 
-            person.decision = "Player controlled";
+            person.decision =
+                "Player controlled";
+
             continue;
 
         }
 
-        // Hunger
 
-        person.hunger -= 0.01;
+        person.hunger -=
+            0.002;
 
-        if (person.hunger < 15) {
 
-            person.decision = "Looking for food";
+        if (
+            person.hunger < 15
+        ) {
 
-            person.hunger += 0.03;
+            person.decision =
+                "Looking for food";
 
-        }
-
-        // Happiness
-
-        if (person.hunger > 60) {
-
-            person.happiness += 0.01;
-
-        } else {
-
-            person.happiness -= 0.01;
+            person.hunger +=
+                0.005;
 
         }
 
-        person.happiness = Math.max(
-            0,
-            Math.min(100, person.happiness)
-        );
 
-        // Random decisions
-
-        if (Math.random() < 0.01) {
+        if (
+            Math.random() <
+            0.01
+        ) {
 
             const decisions = [
+
                 "Walking",
                 "Working",
                 "Gathering",
                 "Talking",
-                "Looking for food",
-                "Visiting",
+                "Hunting",
                 "Resting"
+
             ];
 
+
             person.decision =
-                decisions[randomInt(0, decisions.length)];
+                decisions[
+                    randomInt(
+                        0,
+                        decisions.length
+                    )
+                ];
 
         }
 
-        // Movement
 
         if (
             person.targetX === null ||
-            Math.random() < 0.01
+            Math.random() <
+            0.01
         ) {
 
             person.targetX =
-                person.x + random(-250, 250);
+                person.x +
+                random(-15, 15);
 
-            person.targetY =
-                person.y + random(-250, 250);
-
-        }
-
-        const dx = person.targetX - person.x;
-        const dy = person.targetY - person.y;
-
-        const distance = Math.hypot(dx, dy);
-
-        if (distance > 5) {
-
-            person.x += (dx / distance) * person.speed;
-            person.y += (dy / distance) * person.speed;
+            person.targetZ =
+                person.z +
+                random(-15, 15);
 
         }
 
-        // World boundaries
 
-        person.x = Math.max(
-            20,
-            Math.min(world.width - 20, person.x)
-        );
+        const dx =
+            person.targetX -
+            person.x;
 
-        person.y = Math.max(
-            20,
-            Math.min(world.height - 20, person.y)
-        );
+        const dz =
+            person.targetZ -
+            person.z;
 
-        // Aging
 
-        person.age += 0.00002;
+        const distance =
+            Math.hypot(
+                dx,
+                dz
+            );
 
-        // Death from old age
 
-        if (person.age > 90) {
+        if (
+            distance > 0.2
+        ) {
 
-            person.alive = false;
+            person.x +=
+                (dx / distance) *
+                person.speed;
+
+            person.z +=
+                (dz / distance) *
+                person.speed;
+
+        }
+
+
+        person.mesh.position.x =
+            person.x;
+
+        person.mesh.position.z =
+            person.z;
+
+
+        person.age +=
+            0.000001;
+
+
+        if (
+            person.age > 90
+        ) {
+
+            person.alive =
+                false;
+
+            scene.remove(
+                person.mesh
+            );
 
         }
 
@@ -544,255 +1561,350 @@ function updatePeople() {
 }
 
 
-// --------------------------------------------------
-// DRAW WORLD
-// --------------------------------------------------
+/* =====================================================
+   ANIMAL AI
+===================================================== */
 
-function drawWorld() {
+function updateAnimals() {
 
-    ctx.fillStyle = "#8eb56b";
+    for (
+        const animal
+        of world.animals
+    ) {
 
-    ctx.fillRect(
-        0,
-        0,
-        canvas.width,
-        canvas.height
+        if (
+            !animal.alive
+        )
+            continue;
+
+
+        animal.hunger -=
+            0.001;
+
+
+        if (
+            animal.targetX === null ||
+            Math.random() <
+            0.008
+        ) {
+
+            animal.targetX =
+                animal.x +
+                random(-20, 20);
+
+            animal.targetZ =
+                animal.z +
+                random(-20, 20);
+
+        }
+
+
+        const dx =
+            animal.targetX -
+            animal.x;
+
+        const dz =
+            animal.targetZ -
+            animal.z;
+
+
+        const distance =
+            Math.hypot(
+                dx,
+                dz
+            );
+
+
+        if (
+            distance > 0.2
+        ) {
+
+            animal.x +=
+                (dx / distance) *
+                animal.speed;
+
+            animal.z +=
+                (dz / distance) *
+                animal.speed;
+
+        }
+
+
+        animal.mesh.position.x =
+            animal.x;
+
+        animal.mesh.position.z =
+            animal.z;
+
+    }
+
+}
+
+
+/* =====================================================
+   CHARACTER CONTROLS
+===================================================== */
+
+const movement =
+    {
+
+        up: false,
+        down: false,
+        left: false,
+        right: false
+
+    };
+
+
+document
+    .querySelectorAll(
+        "[data-move]"
+    )
+    .forEach(
+        button => {
+
+            const direction =
+                button.dataset.move;
+
+
+            button.addEventListener(
+                "pointerdown",
+                event => {
+
+                    event.preventDefault();
+
+                    movement[
+                        direction
+                    ] = true;
+
+                }
+            );
+
+
+            button.addEventListener(
+                "pointerup",
+                () => {
+
+                    movement[
+                        direction
+                    ] = false;
+
+                }
+            );
+
+
+            button.addEventListener(
+                "pointercancel",
+                () => {
+
+                    movement[
+                        direction
+                    ] = false;
+
+                }
+            );
+
+        }
     );
 
-    // Water
 
-    for (const lake of world.water) {
+window.addEventListener(
+    "keydown",
+    event => {
 
-        const p = worldToScreen(lake.x, lake.y);
+        if (!playingAs)
+            return;
 
-        ctx.beginPath();
 
-        ctx.fillStyle = "#4d9bd8";
+        const key =
+            event.key.toLowerCase();
 
-        ctx.arc(
-            p.x,
-            p.y,
-            lake.radius * camera.zoom,
-            0,
-            Math.PI * 2
-        );
 
-        ctx.fill();
+        if (
+            key === "w" ||
+            key === "arrowup"
+        )
+            movement.up = true;
 
-    }
 
-    // Trees
+        if (
+            key === "s" ||
+            key === "arrowdown"
+        )
+            movement.down = true;
 
-    for (const tree of world.trees) {
 
-        const p = worldToScreen(tree.x, tree.y);
+        if (
+            key === "a" ||
+            key === "arrowleft"
+        )
+            movement.left = true;
 
-        ctx.beginPath();
 
-        ctx.fillStyle = "#4e8e4b";
-
-        ctx.arc(
-            p.x,
-            p.y,
-            tree.size * camera.zoom,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fill();
+        if (
+            key === "d" ||
+            key === "arrowright"
+        )
+            movement.right = true;
 
     }
+);
 
-    // Houses
 
-    for (const house of world.houses) {
+window.addEventListener(
+    "keyup",
+    event => {
 
-        const p = worldToScreen(house.x, house.y);
+        const key =
+            event.key.toLowerCase();
 
-        const s = house.size * camera.zoom;
 
-        ctx.fillStyle = "#d2aa70";
+        if (
+            key === "w" ||
+            key === "arrowup"
+        )
+            movement.up = false;
 
-        ctx.fillRect(
-            p.x - s / 2,
-            p.y - s / 2,
-            s,
-            s
-        );
 
-        ctx.beginPath();
+        if (
+            key === "s" ||
+            key === "arrowdown"
+        )
+            movement.down = false;
 
-        ctx.fillStyle = "#9b4e3e";
 
-        ctx.moveTo(
-            p.x - s * 0.65,
-            p.y - s / 2
-        );
+        if (
+            key === "a" ||
+            key === "arrowleft"
+        )
+            movement.left = false;
 
-        ctx.lineTo(
-            p.x,
-            p.y - s
-        );
 
-        ctx.lineTo(
-            p.x + s * 0.65,
-            p.y - s / 2
-        );
-
-        ctx.closePath();
-
-        ctx.fill();
+        if (
+            key === "d" ||
+            key === "arrowright"
+        )
+            movement.right = false;
 
     }
-
-    // People
-
-    for (const person of world.people) {
-
-        if (!person.alive) continue;
-
-        const p = worldToScreen(
-            person.x,
-            person.y
-        );
-
-        const size = 9 * camera.zoom;
-
-        // Selection ring
-
-        if (person === selected) {
-
-            ctx.beginPath();
-
-            ctx.strokeStyle = "#ffffff";
-
-            ctx.lineWidth = 3;
-
-            ctx.arc(
-                p.x,
-                p.y,
-                size * 1.8,
-                0,
-                Math.PI * 2
-            );
-
-            ctx.stroke();
-
-        }
-
-        // Body
-
-        ctx.beginPath();
-
-        ctx.fillStyle = person.color;
-
-        ctx.arc(
-            p.x,
-            p.y + size * 0.5,
-            size,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fill();
-
-        // Head
-
-        ctx.beginPath();
-
-        ctx.fillStyle = "#e8b27d";
-
-        ctx.arc(
-            p.x,
-            p.y - size * 0.7,
-            size * 0.65,
-            0,
-            Math.PI * 2
-        );
-
-        ctx.fill();
-
-        // Name when selected
-
-        if (person === selected && camera.zoom > 0.7) {
-
-            ctx.fillStyle = "#ffffff";
-
-            ctx.font = `${Math.max(12, 14 * camera.zoom)}px Arial`;
-
-            ctx.textAlign = "center";
-
-            ctx.fillText(
-                person.name,
-                p.x,
-                p.y - size * 2
-            );
-
-        }
-
-    }
-
-}
+);
 
 
-// --------------------------------------------------
-// CHARACTER MOVEMENT
-// --------------------------------------------------
+/* =====================================================
+   MOVE PLAYER
+===================================================== */
 
-window.addEventListener("keydown", function(e) {
+function controlPlayer() {
 
-    keys[e.key.toLowerCase()] = true;
+    if (!playingAs)
+        return;
 
-});
 
-window.addEventListener("keyup", function(e) {
+    const speed =
+        0.15;
 
-    keys[e.key.toLowerCase()] = false;
 
-});
+    if (movement.up)
+        playingAs.z -= speed;
 
-function controlCharacter() {
 
-    if (!playingAs) return;
+    if (movement.down)
+        playingAs.z += speed;
 
-    const speed = 2;
 
-    if (keys["w"] || keys["arrowup"]) {
-        playingAs.y -= speed;
-    }
-
-    if (keys["s"] || keys["arrowdown"]) {
-        playingAs.y += speed;
-    }
-
-    if (keys["a"] || keys["arrowleft"]) {
+    if (movement.left)
         playingAs.x -= speed;
-    }
 
-    if (keys["d"] || keys["arrowright"]) {
+
+    if (movement.right)
         playingAs.x += speed;
-    }
+
+
+    playingAs.x =
+        Math.max(
+            -55,
+            Math.min(
+                55,
+                playingAs.x
+            )
+        );
+
+
+    playingAs.z =
+        Math.max(
+            -55,
+            Math.min(
+                55,
+                playingAs.z
+            )
+        );
+
+
+    playingAs.mesh.position.x =
+        playingAs.x;
+
+    playingAs.mesh.position.z =
+        playingAs.z;
 
 }
 
 
-// --------------------------------------------------
-// GAME LOOP
-// --------------------------------------------------
+/* =====================================================
+   RESIZE
+===================================================== */
+
+window.addEventListener(
+    "resize",
+    () => {
+
+        camera.aspect =
+            window.innerWidth /
+            window.innerHeight;
+
+        camera.updateProjectionMatrix();
+
+        renderer.setSize(
+            window.innerWidth,
+            window.innerHeight
+        );
+
+    }
+);
+
+
+/* =====================================================
+   GAME LOOP
+===================================================== */
 
 function gameLoop() {
+
+    requestAnimationFrame(
+        gameLoop
+    );
+
 
     if (!paused) {
 
         updatePeople();
-        controlCharacter();
+
+        updateAnimals();
+
+        controlPlayer();
 
     }
 
-    drawWorld();
 
-    requestAnimationFrame(gameLoop);
+    updateCamera();
+
+
+    renderer.render(
+        scene,
+        camera
+    );
 
 }
+
+
+updateModeButtons();
 
 gameLoop();
