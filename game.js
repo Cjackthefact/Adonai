@@ -1,11 +1,6 @@
-// ============================================
-// ADONAI — WORLD SIMULATOR
-// ============================================
-
 const canvas = document.getElementById("world");
 const ctx = canvas.getContext("2d");
 
-// Existing UI elements
 const pauseBtn = document.getElementById("pauseBtn");
 const godModeBtn = document.getElementById("godModeBtn");
 const playModeBtn = document.getElementById("playModeBtn");
@@ -13,512 +8,688 @@ const selectedName = document.getElementById("selectedName");
 const selectedInfo = document.getElementById("selectedInfo");
 const playCharacterBtn = document.getElementById("playCharacterBtn");
 
-let W = 0;
-let H = 0;
-
 let paused = false;
 let mode = "god";
 let selected = null;
 let playingAs = null;
 
-let camera = {
-    x: 0,
-    y: 0,
-    zoom: 1
-};
-
-// ============================================
-// WORLD
-// ============================================
-
 const world = {
-    width: 2400,
-    height: 1600,
-
+    width: 5000,
+    height: 3500,
     people: [],
     trees: [],
     houses: [],
-    water: [],
-
-    time: 0
+    water: []
 };
 
-// ============================================
-// PEOPLE
-// ============================================
+const camera = {
+    x: 2500,
+    y: 1750,
+    zoom: 1
+};
+
+const keys = {};
 
 const names = [
-    "Adam",
-    "Eve",
-    "Noah",
-    "Sarah",
-    "Daniel",
-    "Layla",
-    "Isaiah",
-    "Maya",
-    "David",
-    "Ruth",
-    "Samuel",
-    "Mary",
-    "Joseph",
-    "Jonah",
-    "Abigail",
-    "Elijah",
-    "Hannah",
-    "Michael",
-    "Rachel",
-    "Benjamin"
+    "Joseph", "Marcus", "Daniel", "Sarah", "David",
+    "Isaiah", "Layla", "Andrew", "Michael", "Samuel",
+    "Jacob", "Joshua", "Elijah", "Noah", "Benjamin",
+    "Nathan", "Ethan", "Caleb", "Miriam", "Ruth"
 ];
 
 const jobs = [
     "Farmer",
+    "Fisher",
     "Builder",
     "Hunter",
-    "Fisher",
-    "Merchant",
-    "Traveler"
+    "Warrior",
+    "Gatherer"
 ];
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
+
+
+// --------------------------------------------------
+// WORLD GENERATION
+// --------------------------------------------------
 
 function random(min, max) {
     return Math.random() * (max - min) + min;
 }
 
 function randomInt(min, max) {
-    return Math.floor(random(min, max + 1));
+    return Math.floor(random(min, max));
 }
 
-function distance(a, b) {
-    return Math.hypot(a.x - b.x, a.y - b.y);
-}
-
-// ============================================
-// CREATE PEOPLE
-// ============================================
-
-function createPerson(name, index) {
-
-    return {
-        id: index,
-
-        name: name,
-
-        x: random(250, world.width - 250),
-        y: random(250, world.height - 250),
-
-        age: randomInt(18, 65),
-
-        health: 100,
-        hunger: randomInt(10, 40),
-
-        happiness: randomInt(50, 90),
-
-        job: jobs[randomInt(0, jobs.length - 1)],
-
-        alive: true,
-
-        color: `hsl(${randomInt(0, 360)}, 65%, 55%)`,
-
-        direction: random(0, Math.PI * 2),
-
-        speed: random(0.3, 0.8),
-
-        decision: "Exploring",
-
-        decisionTimer: randomInt(60, 180)
-    };
-}
-
-// ============================================
-// WORLD GENERATION
-// ============================================
-
-function generateWorld() {
+function createWorld() {
 
     world.people = [];
     world.trees = [];
     world.houses = [];
     world.water = [];
 
-    // People
-    names.forEach((name, index) => {
-        world.people.push(createPerson(name, index));
-    });
+    // Water
+    for (let i = 0; i < 25; i++) {
+        world.water.push({
+            x: random(200, world.width - 200),
+            y: random(200, world.height - 200),
+            radius: random(100, 350)
+        });
+    }
 
     // Trees
-    for (let i = 0; i < 220; i++) {
-
+    for (let i = 0; i < 600; i++) {
         world.trees.push({
             x: random(50, world.width - 50),
             y: random(50, world.height - 50),
-            size: random(12, 25)
+            size: random(15, 32)
         });
     }
 
     // Houses
-    for (let i = 0; i < 25; i++) {
-
+    for (let i = 0; i < 45; i++) {
         world.houses.push({
-            x: random(150, world.width - 200),
-            y: random(150, world.height - 200),
-            width: random(60, 90),
-            height: random(50, 70)
+            x: random(250, world.width - 250),
+            y: random(250, world.height - 250),
+            size: random(35, 55)
         });
     }
 
-    // Rivers / water areas
-    for (let i = 0; i < 4; i++) {
+    // People
+    for (let i = 0; i < 120; i++) {
 
-        world.water.push({
-            x: random(200, world.width - 500),
-            y: random(200, world.height - 500),
-            width: random(300, 700),
-            height: random(60, 130)
-        });
+        const person = {
+            id: i,
+
+            name: names[i % names.length],
+
+            x: random(100, world.width - 100),
+            y: random(100, world.height - 100),
+
+            age: randomInt(18, 55),
+
+            health: 100,
+            hunger: randomInt(30, 90),
+            happiness: randomInt(40, 100),
+
+            job: jobs[randomInt(0, jobs.length)],
+
+            speed: random(0.4, 1.2),
+
+            targetX: null,
+            targetY: null,
+
+            decision: "Wandering",
+
+            alive: true,
+
+            color: Math.random() > 0.5 ? "#d14c4c" : "#4c62d1"
+        };
+
+        world.people.push(person);
     }
 }
 
-// ============================================
-// CANVAS
-// ============================================
+createWorld();
 
-function resizeCanvas() {
 
-    W = canvas.clientWidth;
-    H = canvas.clientHeight;
-
-    canvas.width = W * devicePixelRatio;
-    canvas.height = H * devicePixelRatio;
-
-    ctx.setTransform(
-        devicePixelRatio,
-        0,
-        0,
-        devicePixelRatio,
-        0,
-        0
-    );
-}
-
-window.addEventListener("resize", resizeCanvas);
-
-// ============================================
+// --------------------------------------------------
 // CAMERA
-// ============================================
+// --------------------------------------------------
 
-function centerCameraOn(person) {
+function screenToWorld(screenX, screenY) {
 
-    if (!person) return;
+    return {
+        x: camera.x + (screenX - canvas.width / 2) / camera.zoom,
+        y: camera.y + (screenY - canvas.height / 2) / camera.zoom
+    };
 
-    camera.x = person.x - W / (2 * camera.zoom);
-    camera.y = person.y - H / (2 * camera.zoom);
-
-    camera.x = Math.max(
-        0,
-        Math.min(
-            camera.x,
-            world.width - W / camera.zoom
-        )
-    );
-
-    camera.y = Math.max(
-        0,
-        Math.min(
-            camera.y,
-            world.height - H / camera.zoom
-        )
-    );
 }
 
-// ============================================
-// NPC DECISIONS
-// ============================================
+function worldToScreen(worldX, worldY) {
 
-function makeDecision(person) {
+    return {
+        x: canvas.width / 2 + (worldX - camera.x) * camera.zoom,
+        y: canvas.height / 2 + (worldY - camera.y) * camera.zoom
+    };
 
-    if (!person.alive) return;
+}
 
-    if (person.hunger > 80) {
 
-        person.decision = "Looking for food";
+// --------------------------------------------------
+// ZOOM
+// --------------------------------------------------
 
-        person.direction = random(
-            0,
-            Math.PI * 2
+function setZoom(value, centerX, centerY) {
+
+    const oldZoom = camera.zoom;
+
+    camera.zoom = Math.max(0.35, Math.min(3.5, value));
+
+    if (centerX !== undefined) {
+
+        const before = screenToWorld(centerX, centerY);
+
+        camera.x += before.x - screenToWorld(centerX, centerY).x;
+        camera.y += before.y - screenToWorld(centerX, centerY).y;
+
+    }
+
+    if (oldZoom !== camera.zoom) {
+        render();
+    }
+}
+
+
+// Mouse wheel zoom
+
+canvas.addEventListener("wheel", function(e) {
+
+    e.preventDefault();
+
+    const direction = e.deltaY < 0 ? 1.1 : 0.9;
+
+    setZoom(
+        camera.zoom * direction,
+        e.clientX,
+        e.clientY
+    );
+
+}, { passive: false });
+
+
+// Pinch zoom
+
+let touches = [];
+let pinchDistance = null;
+
+canvas.addEventListener("touchstart", function(e) {
+
+    touches = [...e.touches];
+
+    if (touches.length === 2) {
+
+        pinchDistance = Math.hypot(
+            touches[0].clientX - touches[1].clientX,
+            touches[0].clientY - touches[1].clientY
         );
 
-    } else if (person.health < 40) {
+    }
 
-        person.decision = "Resting";
+}, { passive: false });
+
+
+canvas.addEventListener("touchmove", function(e) {
+
+    if (e.touches.length === 2) {
+
+        const a = e.touches[0];
+        const b = e.touches[1];
+
+        const distance = Math.hypot(
+            a.clientX - b.clientX,
+            a.clientY - b.clientY
+        );
+
+        if (pinchDistance) {
+
+            const scale = distance / pinchDistance;
+
+            setZoom(
+                camera.zoom * scale,
+                (a.clientX + b.clientX) / 2,
+                (a.clientY + b.clientY) / 2
+            );
+
+        }
+
+        pinchDistance = distance;
+
+        e.preventDefault();
+    }
+
+}, { passive: false });
+
+
+// --------------------------------------------------
+// CAMERA DRAGGING
+// --------------------------------------------------
+
+let dragging = false;
+let lastX = 0;
+let lastY = 0;
+
+canvas.addEventListener("pointerdown", function(e) {
+
+    dragging = true;
+
+    lastX = e.clientX;
+    lastY = e.clientY;
+
+});
+
+canvas.addEventListener("pointermove", function(e) {
+
+    if (!dragging) return;
+
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+
+    camera.x -= dx / camera.zoom;
+    camera.y -= dy / camera.zoom;
+
+    lastX = e.clientX;
+    lastY = e.clientY;
+
+});
+
+canvas.addEventListener("pointerup", function() {
+    dragging = false;
+});
+
+canvas.addEventListener("pointercancel", function() {
+    dragging = false;
+});
+
+
+// --------------------------------------------------
+// SELECT CHARACTER
+// --------------------------------------------------
+
+canvas.addEventListener("click", function(e) {
+
+    const pos = screenToWorld(e.clientX, e.clientY);
+
+    let closest = null;
+    let closestDistance = 30 / camera.zoom;
+
+    for (const person of world.people) {
+
+        if (!person.alive) continue;
+
+        const distance = Math.hypot(
+            person.x - pos.x,
+            person.y - pos.y
+        );
+
+        if (distance < closestDistance) {
+
+            closest = person;
+            closestDistance = distance;
+
+        }
+
+    }
+
+    if (closest) {
+        selectCharacter(closest);
+    }
+
+});
+
+function selectCharacter(person) {
+
+    selected = person;
+
+    selectedName.textContent = person.name;
+
+    selectedInfo.innerHTML = `
+        Age: ${Math.floor(person.age)}<br>
+        Job: ${person.job}<br>
+        Health: ${Math.floor(person.health)}%<br>
+        Hunger: ${Math.floor(person.hunger)}%<br>
+        Happiness: ${Math.floor(person.happiness)}%<br>
+        Decision: ${person.decision}
+    `;
+
+}
+
+
+// --------------------------------------------------
+// CHARACTER CONTROL
+// --------------------------------------------------
+
+playCharacterBtn.addEventListener("click", function() {
+
+    if (!selected) return;
+
+    playingAs = selected;
+    mode = "character";
+
+    updateModeButtons();
+
+});
+
+
+// --------------------------------------------------
+// MODE BUTTONS
+// --------------------------------------------------
+
+godModeBtn.addEventListener("click", function() {
+
+    mode = "god";
+    playingAs = null;
+
+    updateModeButtons();
+
+});
+
+playModeBtn.addEventListener("click", function() {
+
+    if (!selected) return;
+
+    mode = "character";
+    playingAs = selected;
+
+    updateModeButtons();
+
+});
+
+function updateModeButtons() {
+
+    if (mode === "god") {
+
+        godModeBtn.innerHTML = "👑 God Mode: ON";
+        playModeBtn.innerHTML = "🎮 Character Mode";
 
     } else {
 
-        const decisions = [
-            "Working",
-            "Exploring",
-            "Visiting",
-            "Gathering",
-            "Walking",
-            "Socializing"
-        ];
+        godModeBtn.innerHTML = "👑 God Mode";
+        playModeBtn.innerHTML = "🎮 Character Mode: ON";
 
-        person.decision =
-            decisions[randomInt(0, decisions.length - 1)];
-
-        person.direction = random(
-            0,
-            Math.PI * 2
-        );
     }
 
-    person.decisionTimer = randomInt(100, 300);
 }
 
-// ============================================
-// UPDATE PEOPLE
-// ============================================
+
+// --------------------------------------------------
+// PAUSE
+// --------------------------------------------------
+
+pauseBtn.addEventListener("click", function() {
+
+    paused = !paused;
+
+    pauseBtn.textContent = paused ? "▶" : "Ⅱ";
+
+});
+
+
+// --------------------------------------------------
+// AI
+// --------------------------------------------------
 
 function updatePeople() {
 
-    world.people.forEach(person => {
+    for (const person of world.people) {
 
-        if (!person.alive) return;
-
-        // Hunger increases
-        person.hunger += 0.008;
-
-        if (person.hunger > 100) {
-
-            person.hunger = 100;
-
-            person.health -= 0.02;
-        }
-
-        // Decision timer
-        person.decisionTimer--;
-
-        if (person.decisionTimer <= 0) {
-            makeDecision(person);
-        }
+        if (!person.alive) continue;
 
         // Player controlled character
-        if (playingAs === person) {
-            return;
+
+        if (person === playingAs) {
+
+            person.decision = "Player controlled";
+            continue;
+
         }
 
-        // NPC movement
-        if (person.decision !== "Resting") {
+        // Hunger
 
-            person.x +=
-                Math.cos(person.direction) *
-                person.speed;
+        person.hunger -= 0.01;
 
-            person.y +=
-                Math.sin(person.direction) *
-                person.speed;
+        if (person.hunger < 15) {
+
+            person.decision = "Looking for food";
+
+            person.hunger += 0.03;
+
+        }
+
+        // Happiness
+
+        if (person.hunger > 60) {
+
+            person.happiness += 0.01;
+
+        } else {
+
+            person.happiness -= 0.01;
+
+        }
+
+        person.happiness = Math.max(
+            0,
+            Math.min(100, person.happiness)
+        );
+
+        // Random decisions
+
+        if (Math.random() < 0.01) {
+
+            const decisions = [
+                "Walking",
+                "Working",
+                "Gathering",
+                "Talking",
+                "Looking for food",
+                "Visiting",
+                "Resting"
+            ];
+
+            person.decision =
+                decisions[randomInt(0, decisions.length)];
+
+        }
+
+        // Movement
+
+        if (
+            person.targetX === null ||
+            Math.random() < 0.01
+        ) {
+
+            person.targetX =
+                person.x + random(-250, 250);
+
+            person.targetY =
+                person.y + random(-250, 250);
+
+        }
+
+        const dx = person.targetX - person.x;
+        const dy = person.targetY - person.y;
+
+        const distance = Math.hypot(dx, dy);
+
+        if (distance > 5) {
+
+            person.x += (dx / distance) * person.speed;
+            person.y += (dy / distance) * person.speed;
+
         }
 
         // World boundaries
-        if (person.x < 30) {
-            person.x = 30;
-            person.direction = Math.random() * Math.PI * 2;
-        }
 
-        if (person.x > world.width - 30) {
-            person.x = world.width - 30;
-            person.direction = Math.random() * Math.PI * 2;
-        }
+        person.x = Math.max(
+            20,
+            Math.min(world.width - 20, person.x)
+        );
 
-        if (person.y < 30) {
-            person.y = 30;
-            person.direction = Math.random() * Math.PI * 2;
-        }
+        person.y = Math.max(
+            20,
+            Math.min(world.height - 20, person.y)
+        );
 
-        if (person.y > world.height - 30) {
-            person.y = world.height - 30;
-            person.direction = Math.random() * Math.PI * 2;
-        }
+        // Aging
 
-        // Small recovery
-        if (person.hunger < 40) {
-            person.health = Math.min(
-                100,
-                person.health + 0.005
-            );
-        }
+        person.age += 0.00002;
 
-        // Death
-        if (person.health <= 0) {
+        // Death from old age
 
-            person.health = 0;
+        if (person.age > 90) {
+
             person.alive = false;
-            person.decision = "Dead";
+
         }
-    });
+
+    }
+
 }
 
-// ============================================
-// DRAW WATER
-// ============================================
 
-function drawWater() {
+// --------------------------------------------------
+// DRAW WORLD
+// --------------------------------------------------
 
-    ctx.save();
+function drawWorld() {
 
-    ctx.fillStyle = "#3187c7";
+    ctx.fillStyle = "#8eb56b";
 
-    world.water.forEach(w => {
+    ctx.fillRect(
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    // Water
+
+    for (const lake of world.water) {
+
+        const p = worldToScreen(lake.x, lake.y);
 
         ctx.beginPath();
 
-        ctx.roundRect(
-            w.x,
-            w.y,
-            w.width,
-            w.height,
-            40
-        );
-
-        ctx.fill();
-    });
-
-    ctx.restore();
-}
-
-// ============================================
-// DRAW TREES
-// ============================================
-
-function drawTrees() {
-
-    world.trees.forEach(tree => {
-
-        // Trunk
-        ctx.fillStyle = "#76502f";
-
-        ctx.fillRect(
-            tree.x - 4,
-            tree.y,
-            8,
-            tree.size
-        );
-
-        // Leaves
-        ctx.fillStyle = "#3d9148";
-
-        ctx.beginPath();
+        ctx.fillStyle = "#4d9bd8";
 
         ctx.arc(
-            tree.x,
-            tree.y,
-            tree.size,
+            p.x,
+            p.y,
+            lake.radius * camera.zoom,
             0,
             Math.PI * 2
         );
 
         ctx.fill();
-    });
-}
 
-// ============================================
-// DRAW HOUSES
-// ============================================
+    }
 
-function drawHouses() {
+    // Trees
 
-    world.houses.forEach(house => {
+    for (const tree of world.trees) {
 
-        // Building
-        ctx.fillStyle = "#d6a66a";
-
-        ctx.fillRect(
-            house.x,
-            house.y,
-            house.width,
-            house.height
-        );
-
-        // Roof
-        ctx.fillStyle = "#9b4637";
+        const p = worldToScreen(tree.x, tree.y);
 
         ctx.beginPath();
 
+        ctx.fillStyle = "#4e8e4b";
+
+        ctx.arc(
+            p.x,
+            p.y,
+            tree.size * camera.zoom,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+    }
+
+    // Houses
+
+    for (const house of world.houses) {
+
+        const p = worldToScreen(house.x, house.y);
+
+        const s = house.size * camera.zoom;
+
+        ctx.fillStyle = "#d2aa70";
+
+        ctx.fillRect(
+            p.x - s / 2,
+            p.y - s / 2,
+            s,
+            s
+        );
+
+        ctx.beginPath();
+
+        ctx.fillStyle = "#9b4e3e";
+
         ctx.moveTo(
-            house.x - 10,
-            house.y
+            p.x - s * 0.65,
+            p.y - s / 2
         );
 
         ctx.lineTo(
-            house.x + house.width / 2,
-            house.y - 35
+            p.x,
+            p.y - s
         );
 
         ctx.lineTo(
-            house.x + house.width + 10,
-            house.y
+            p.x + s * 0.65,
+            p.y - s / 2
         );
 
         ctx.closePath();
 
         ctx.fill();
 
-        // Door
-        ctx.fillStyle = "#573827";
+    }
 
-        ctx.fillRect(
-            house.x + house.width / 2 - 8,
-            house.y + house.height - 25,
-            16,
-            25
+    // People
+
+    for (const person of world.people) {
+
+        if (!person.alive) continue;
+
+        const p = worldToScreen(
+            person.x,
+            person.y
         );
-    });
-}
 
-// ============================================
-// DRAW PEOPLE
-// ============================================
-
-function drawPeople() {
-
-    world.people.forEach(person => {
-
-        if (!person.alive) return;
-
-        const isSelected =
-            selected === person;
-
-        const isPlayer =
-            playingAs === person;
+        const size = 9 * camera.zoom;
 
         // Selection ring
-        if (isSelected || isPlayer) {
 
-            ctx.strokeStyle =
-                isPlayer ? "#ffd700" : "#ffffff";
-
-            ctx.lineWidth = 3;
+        if (person === selected) {
 
             ctx.beginPath();
 
+            ctx.strokeStyle = "#ffffff";
+
+            ctx.lineWidth = 3;
+
             ctx.arc(
-                person.x,
-                person.y,
-                17,
+                p.x,
+                p.y,
+                size * 1.8,
                 0,
                 Math.PI * 2
             );
 
             ctx.stroke();
+
         }
 
         // Body
-        ctx.fillStyle = person.color;
 
         ctx.beginPath();
 
+        ctx.fillStyle = person.color;
+
         ctx.arc(
-            person.x,
-            person.y,
-            10,
+            p.x,
+            p.y + size * 0.5,
+            size,
             0,
             Math.PI * 2
         );
@@ -526,14 +697,15 @@ function drawPeople() {
         ctx.fill();
 
         // Head
-        ctx.fillStyle = "#f0b27a";
 
         ctx.beginPath();
 
+        ctx.fillStyle = "#e8b27d";
+
         ctx.arc(
-            person.x,
-            person.y - 13,
-            7,
+            p.x,
+            p.y - size * 0.7,
+            size * 0.65,
             0,
             Math.PI * 2
         );
@@ -541,358 +713,86 @@ function drawPeople() {
         ctx.fill();
 
         // Name when selected
-        if (isSelected || isPlayer) {
 
-            ctx.font = "bold 12px Arial";
-            ctx.textAlign = "center";
+        if (person === selected && camera.zoom > 0.7) {
 
             ctx.fillStyle = "#ffffff";
 
+            ctx.font = `${Math.max(12, 14 * camera.zoom)}px Arial`;
+
+            ctx.textAlign = "center";
+
             ctx.fillText(
                 person.name,
-                person.x,
-                person.y - 28
+                p.x,
+                p.y - size * 2
             );
+
         }
-    });
-}
 
-// ============================================
-// DRAW WORLD
-// ============================================
-
-function drawWorld() {
-
-    ctx.clearRect(0, 0, W, H);
-
-    ctx.save();
-
-    ctx.scale(camera.zoom, camera.zoom);
-
-    ctx.translate(
-        -camera.x,
-        -camera.y
-    );
-
-    // Ground
-    ctx.fillStyle = "#82b85a";
-
-    ctx.fillRect(
-        0,
-        0,
-        world.width,
-        world.height
-    );
-
-    drawWater();
-    drawTrees();
-    drawHouses();
-    drawPeople();
-
-    ctx.restore();
-}
-
-// ============================================
-// MOUSE / TOUCH SELECTION
-// ============================================
-
-function getWorldPosition(event) {
-
-    const rect =
-        canvas.getBoundingClientRect();
-
-    const x =
-        (event.clientX - rect.left) /
-        camera.zoom +
-        camera.x;
-
-    const y =
-        (event.clientY - rect.top) /
-        camera.zoom +
-        camera.y;
-
-    return { x, y };
-}
-
-function selectPersonAt(x, y) {
-
-    let closest = null;
-    let closestDistance = 30;
-
-    world.people.forEach(person => {
-
-        if (!person.alive) return;
-
-        const d = Math.hypot(
-            person.x - x,
-            person.y - y
-        );
-
-        if (d < closestDistance) {
-
-            closest = person;
-            closestDistance = d;
-        }
-    });
-
-    if (closest) {
-
-        selected = closest;
-
-        updateSelectedUI();
     }
+
 }
 
-canvas.addEventListener("click", event => {
 
-    const pos = getWorldPosition(event);
+// --------------------------------------------------
+// CHARACTER MOVEMENT
+// --------------------------------------------------
 
-    selectPersonAt(
-        pos.x,
-        pos.y
-    );
+window.addEventListener("keydown", function(e) {
+
+    keys[e.key.toLowerCase()] = true;
+
 });
 
-// ============================================
-// SELECTED CHARACTER UI
-// ============================================
+window.addEventListener("keyup", function(e) {
 
-function updateSelectedUI() {
+    keys[e.key.toLowerCase()] = false;
 
-    if (!selected) {
+});
 
-        if (selectedName)
-            selectedName.textContent = "No character selected";
-
-        if (selectedInfo)
-            selectedInfo.textContent = "";
-
-        return;
-    }
-
-    if (selectedName) {
-
-        selectedName.textContent =
-            selected.name;
-    }
-
-    if (selectedInfo) {
-
-        selectedInfo.innerHTML = `
-            Age: ${Math.floor(selected.age)}<br>
-            Job: ${selected.job}<br>
-            Health: ${Math.floor(selected.health)}%<br>
-            Hunger: ${Math.floor(selected.hunger)}%<br>
-            Happiness: ${Math.floor(selected.happiness)}%<br>
-            Decision: ${selected.decision}
-        `;
-    }
-}
-
-// ============================================
-// PLAY AS CHARACTER
-// ============================================
-
-if (playCharacterBtn) {
-
-    playCharacterBtn.addEventListener(
-        "click",
-        () => {
-
-            if (!selected) return;
-
-            playingAs = selected;
-
-            mode = "character";
-
-            centerCameraOn(playingAs);
-
-            updateButtons();
-        }
-    );
-}
-
-// ============================================
-// GOD MODE
-// ============================================
-
-if (godModeBtn) {
-
-    godModeBtn.addEventListener(
-        "click",
-        () => {
-
-            mode = "god";
-
-            playingAs = null;
-
-            updateButtons();
-        }
-    );
-}
-
-// ============================================
-// PLAY MODE
-// ============================================
-
-if (playModeBtn) {
-
-    playModeBtn.addEventListener(
-        "click",
-        () => {
-
-            mode = "character";
-
-            if (!playingAs && selected) {
-                playingAs = selected;
-            }
-
-            if (playingAs) {
-                centerCameraOn(playingAs);
-            }
-
-            updateButtons();
-        }
-    );
-}
-
-// ============================================
-// PAUSE
-// ============================================
-
-if (pauseBtn) {
-
-    pauseBtn.addEventListener(
-        "click",
-        () => {
-
-            paused = !paused;
-
-            pauseBtn.textContent =
-                paused ? "▶ Resume" : "⏸ Pause";
-        }
-    );
-}
-
-// ============================================
-// KEYBOARD CONTROLS
-// ============================================
-
-const keys = {};
-
-window.addEventListener(
-    "keydown",
-    event => {
-        keys[event.key.toLowerCase()] = true;
-    }
-);
-
-window.addEventListener(
-    "keyup",
-    event => {
-        keys[event.key.toLowerCase()] = false;
-    }
-);
-
-function controlPlayer() {
+function controlCharacter() {
 
     if (!playingAs) return;
 
-    let dx = 0;
-    let dy = 0;
+    const speed = 2;
 
     if (keys["w"] || keys["arrowup"]) {
-        dy -= 1;
+        playingAs.y -= speed;
     }
 
     if (keys["s"] || keys["arrowdown"]) {
-        dy += 1;
+        playingAs.y += speed;
     }
 
     if (keys["a"] || keys["arrowleft"]) {
-        dx -= 1;
+        playingAs.x -= speed;
     }
 
     if (keys["d"] || keys["arrowright"]) {
-        dx += 1;
+        playingAs.x += speed;
     }
 
-    if (dx !== 0 || dy !== 0) {
-
-        const length =
-            Math.hypot(dx, dy);
-
-        dx /= length;
-        dy /= length;
-
-        playingAs.x += dx * 2.5;
-        playingAs.y += dy * 2.5;
-
-        playingAs.direction =
-            Math.atan2(dy, dx);
-
-        playingAs.decision =
-            "Player controlled";
-
-        centerCameraOn(playingAs);
-    }
 }
 
-// ============================================
-// BUTTON DISPLAY
-// ============================================
 
-function updateButtons() {
-
-    if (godModeBtn) {
-
-        godModeBtn.textContent =
-            mode === "god"
-                ? "👑 God Mode: ON"
-                : "👑 God Mode";
-    }
-
-    if (playModeBtn) {
-
-        playModeBtn.textContent =
-            mode === "character"
-                ? "🎮 Character Mode: ON"
-                : "🎮 Character Mode";
-    }
-}
-
-// ============================================
+// --------------------------------------------------
 // GAME LOOP
-// ============================================
+// --------------------------------------------------
 
 function gameLoop() {
 
     if (!paused) {
 
-        world.time += 1;
-
         updatePeople();
+        controlCharacter();
 
-        controlPlayer();
     }
 
     drawWorld();
 
-    updateSelectedUI();
-
     requestAnimationFrame(gameLoop);
+
 }
 
-// ============================================
-// START GAME
-// ============================================
-
-generateWorld();
-
-resizeCanvas();
-
-updateButtons();
-
 gameLoop();
-
-console.log("ADONAI WORLD STARTED");
