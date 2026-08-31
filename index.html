@@ -2,38 +2,172 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  >
+
   <title>Adonai</title>
+
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
-  <div id="game">
-    <canvas id="world"></canvas>
 
-    <div class="topbar">
-      <div>
-        <div class="logo">ADONAI</div>
-        <div class="subtitle">World Sandbox</div>
-      </div>
-      <button id="pauseBtn">Ⅱ</button>
+<div id="game">
+
+  <!-- 3D WORLD -->
+  <canvas id="world"></canvas>
+
+
+  <!-- TOP BAR -->
+
+  <div class="topbar">
+
+    <div>
+      <div class="logo">ADONAI</div>
+      <div class="subtitle">WORLD SANDBOX</div>
     </div>
 
-    <div id="modePanel" class="panel">
-      <button id="godModeBtn" class="active">GOD MODE</button>
-      <button id="playModeBtn">PLAY AS</button>
-    </div>
+    <button id="pauseBtn">
+      Ⅱ
+    </button>
 
-    <div id="infoPanel" class="panel">
-      <div id="selectedName">Select a person</div>
-      <div id="selectedInfo">Tap a character to inspect them.</div>
-      <button id="playCharacterBtn" hidden>PLAY AS CHARACTER</button>
-    </div>
-
-    <div id="help">
-      <span>Tap a person • Drag to move • Pinch to zoom</span>
-    </div>
   </div>
 
-  <script src="game.js"></script>
+
+  <!-- MODE -->
+
+  <div id="modePanel" class="panel mode-panel">
+
+    <button
+      id="godModeBtn"
+      class="active"
+    >
+      👑 GOD MODE
+    </button>
+
+    <button
+      id="playModeBtn"
+    >
+      🎮 PLAY AS
+    </button>
+
+  </div>
+
+
+  <!-- CHARACTER INFO -->
+
+  <div
+    id="infoPanel"
+    class="panel info-panel"
+  >
+
+    <div id="selectedName">
+      Select a character
+    </div>
+
+    <div id="selectedInfo">
+      Tap a person or animal to inspect them.
+    </div>
+
+    <button
+      id="playCharacterBtn"
+      hidden
+    >
+      PLAY AS CHARACTER
+    </button>
+
+  </div>
+
+
+  <!-- WORLD TOOLS -->
+
+  <div
+    id="toolsPanel"
+    class="tools-panel"
+  >
+
+    <button data-tool="people">
+      🧑
+    </button>
+
+    <button data-tool="animals">
+      🐺
+    </button>
+
+    <button data-tool="nature">
+      🌲
+    </button>
+
+    <button data-tool="water">
+      🌊
+    </button>
+
+    <button data-tool="world">
+      🌎
+    </button>
+
+  </div>
+
+
+  <!-- CHARACTER CONTROLS -->
+
+  <div
+    id="characterControls"
+    class="character-controls hidden"
+  >
+
+    <div class="control-label">
+      CHARACTER MODE
+    </div>
+
+    <div class="joystick-area">
+
+      <button data-move="up">
+        ▲
+      </button>
+
+      <div class="horizontal-controls">
+
+        <button data-move="left">
+          ◀
+        </button>
+
+        <button data-move="down">
+          ▼
+        </button>
+
+        <button data-move="right">
+          ▶
+        </button>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <!-- HELP -->
+
+  <div id="help">
+
+    Drag to look around • Pinch to zoom • Tap characters
+
+  </div>
+
+</div>
+
+
+<!-- THREE.JS -->
+
+<script
+  src="https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.min.js"
+></script>
+
+<script src="game.js"></script>
+
 </body>
 </html>
