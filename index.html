@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Adonai</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game">
+    <canvas id="world"></canvas>
+
+    <div class="topbar">
+      <div>
+        <div class="logo">ADONAI</div>
+        <div class="subtitle">World Sandbox</div>
+      </div>
+      <button id="pauseBtn">Ⅱ</button>
+    </div>
+
+    <div id="modePanel" class="panel">
+      <button id="godModeBtn" class="active">GOD MODE</button>
+      <button id="playModeBtn">PLAY AS</button>
+    </div>
+
+    <div id="infoPanel" class="panel">
+      <div id="selectedName">Select a person</div>
+      <div id="selectedInfo">Tap a character to inspect them.</div>
+      <button id="playCharacterBtn" hidden>PLAY AS CHARACTER</button>
+    </div>
+
+    <div id="help">
+      <span>Tap a person • Drag to move • Pinch to zoom</span>
+    </div>
+  </div>
+
+  <script src="game.js"></script>
+</body>
+</html>
