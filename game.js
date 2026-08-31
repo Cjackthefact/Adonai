@@ -1,6 +1,11 @@
+// ============================================
+// ADONAI — WORLD SIMULATOR
+// ============================================
+
 const canvas = document.getElementById("world");
 const ctx = canvas.getContext("2d");
 
+// Existing UI elements
 const pauseBtn = document.getElementById("pauseBtn");
 const godModeBtn = document.getElementById("godModeBtn");
 const playModeBtn = document.getElementById("playModeBtn");
@@ -8,255 +13,886 @@ const selectedName = document.getElementById("selectedName");
 const selectedInfo = document.getElementById("selectedInfo");
 const playCharacterBtn = document.getElementById("playCharacterBtn");
 
-let W = 0, H = 0;
+let W = 0;
+let H = 0;
+
 let paused = false;
 let mode = "god";
 let selected = null;
 let playingAs = null;
-let camera = { x: 0, y: 0, zoom: 1 };
+
+let camera = {
+    x: 0,
+    y: 0,
+    zoom: 1
+};
+
+// ============================================
+// WORLD
+// ============================================
 
 const world = {
-  width: 1800,
-  height: 1200,
-  people: [],
-  trees: [],
-  houses: [],
-  water: []
+    width: 2400,
+    height: 1600,
+
+    people: [],
+    trees: [],
+    houses: [],
+    water: [],
+
+    time: 0
 };
+
+// ============================================
+// PEOPLE
+// ============================================
 
 const names = [
-  "Marcus","Elena","James","Amara","David","Maya","Jonah","Naomi",
-  "Andre","Sarah","Daniel","Layla","Isaiah","Nia","Malik","Ava"
+    "Adam",
+    "Eve",
+    "Noah",
+    "Sarah",
+    "Daniel",
+    "Layla",
+    "Isaiah",
+    "Maya",
+    "David",
+    "Ruth",
+    "Samuel",
+    "Mary",
+    "Joseph",
+    "Jonah",
+    "Abigail",
+    "Elijah",
+    "Hannah",
+    "Michael",
+    "Rachel",
+    "Benjamin"
 ];
 
-function resize() {
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  W = innerWidth;
-  H = innerHeight;
-  canvas.width = W * dpr;
-  canvas.height = H * dpr;
-  canvas.style.width = W + "px";
-  canvas.style.height = H + "px";
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+const jobs = [
+    "Farmer",
+    "Builder",
+    "Hunter",
+    "Fisher",
+    "Merchant",
+    "Traveler"
+];
+
+function random(min, max) {
+    return Math.random() * (max - min) + min;
 }
-window.addEventListener("resize", resize);
-resize();
 
-function rand(a,b) { return Math.random() * (b-a) + a; }
+function randomInt(min, max) {
+    return Math.floor(random(min, max + 1));
+}
 
-function makeWorld() {
-  for (let i=0;i<110;i++) {
-    world.trees.push({x:rand(60,1740), y:rand(60,1140), r:rand(8,16)});
-  }
+function distance(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y);
+}
 
-  for (let i=0;i<14;i++) {
-    world.houses.push({x:rand(180,1600), y:rand(150,1050), s:rand(22,30)});
-  }
+// ============================================
+// CREATE PEOPLE
+// ============================================
 
-  for (let i=0;i<20;i++) {
-    world.people.push({
-      id:i,
-      name:names[i],
-      age:Math.floor(rand(18,55)),
-      job:["Farmer","Builder","Hunter","Merchant"][i%4],
-      x:rand(220,1580),
-      y:rand(180,1020),
-      tx:0, ty:0,
-      speed:rand(.18,.42),
-      hunger:Math.floor(rand(10,80)),
-      goal:["Find food","Work","Visit family","Explore"][i%4]
+function createPerson(name, index) {
+
+    return {
+        id: index,
+
+        name: name,
+
+        x: random(250, world.width - 250),
+        y: random(250, world.height - 250),
+
+        age: randomInt(18, 65),
+
+        health: 100,
+        hunger: randomInt(10, 40),
+
+        happiness: randomInt(50, 90),
+
+        job: jobs[randomInt(0, jobs.length - 1)],
+
+        alive: true,
+
+        color: `hsl(${randomInt(0, 360)}, 65%, 55%)`,
+
+        direction: random(0, Math.PI * 2),
+
+        speed: random(0.3, 0.8),
+
+        decision: "Exploring",
+
+        decisionTimer: randomInt(60, 180)
+    };
+}
+
+// ============================================
+// WORLD GENERATION
+// ============================================
+
+function generateWorld() {
+
+    world.people = [];
+    world.trees = [];
+    world.houses = [];
+    world.water = [];
+
+    // People
+    names.forEach((name, index) => {
+        world.people.push(createPerson(name, index));
     });
-  }
 
-  world.people.forEach(p => chooseTarget(p));
+    // Trees
+    for (let i = 0; i < 220; i++) {
+
+        world.trees.push({
+            x: random(50, world.width - 50),
+            y: random(50, world.height - 50),
+            size: random(12, 25)
+        });
+    }
+
+    // Houses
+    for (let i = 0; i < 25; i++) {
+
+        world.houses.push({
+            x: random(150, world.width - 200),
+            y: random(150, world.height - 200),
+            width: random(60, 90),
+            height: random(50, 70)
+        });
+    }
+
+    // Rivers / water areas
+    for (let i = 0; i < 4; i++) {
+
+        world.water.push({
+            x: random(200, world.width - 500),
+            y: random(200, world.height - 500),
+            width: random(300, 700),
+            height: random(60, 130)
+        });
+    }
 }
 
-function chooseTarget(p) {
-  p.tx = Math.max(80, Math.min(world.width-80, p.x + rand(-180,180)));
-  p.ty = Math.max(80, Math.min(world.height-80, p.y + rand(-180,180)));
+// ============================================
+// CANVAS
+// ============================================
+
+function resizeCanvas() {
+
+    W = canvas.clientWidth;
+    H = canvas.clientHeight;
+
+    canvas.width = W * devicePixelRatio;
+    canvas.height = H * devicePixelRatio;
+
+    ctx.setTransform(
+        devicePixelRatio,
+        0,
+        0,
+        devicePixelRatio,
+        0,
+        0
+    );
 }
 
-function update() {
-  if (paused) return;
+window.addEventListener("resize", resizeCanvas);
 
-  for (const p of world.people) {
-    if (p === playingAs) continue;
+// ============================================
+// CAMERA
+// ============================================
 
-    const dx = p.tx - p.x;
-    const dy = p.ty - p.y;
-    const d = Math.hypot(dx,dy);
+function centerCameraOn(person) {
 
-    if (d < 5) {
-      chooseTarget(p);
+    if (!person) return;
+
+    camera.x = person.x - W / (2 * camera.zoom);
+    camera.y = person.y - H / (2 * camera.zoom);
+
+    camera.x = Math.max(
+        0,
+        Math.min(
+            camera.x,
+            world.width - W / camera.zoom
+        )
+    );
+
+    camera.y = Math.max(
+        0,
+        Math.min(
+            camera.y,
+            world.height - H / camera.zoom
+        )
+    );
+}
+
+// ============================================
+// NPC DECISIONS
+// ============================================
+
+function makeDecision(person) {
+
+    if (!person.alive) return;
+
+    if (person.hunger > 80) {
+
+        person.decision = "Looking for food";
+
+        person.direction = random(
+            0,
+            Math.PI * 2
+        );
+
+    } else if (person.health < 40) {
+
+        person.decision = "Resting";
+
     } else {
-      p.x += dx/d * p.speed;
-      p.y += dy/d * p.speed;
+
+        const decisions = [
+            "Working",
+            "Exploring",
+            "Visiting",
+            "Gathering",
+            "Walking",
+            "Socializing"
+        ];
+
+        person.decision =
+            decisions[randomInt(0, decisions.length - 1)];
+
+        person.direction = random(
+            0,
+            Math.PI * 2
+        );
     }
 
-    p.hunger += .006;
-    if (p.hunger > 100) p.hunger = 0;
-  }
+    person.decisionTimer = randomInt(100, 300);
 }
 
-function screenToWorld(sx, sy) {
-  return {
-    x: (sx - W/2) / camera.zoom + camera.x,
-    y: (sy - H/2) / camera.zoom + camera.y
-  };
+// ============================================
+// UPDATE PEOPLE
+// ============================================
+
+function updatePeople() {
+
+    world.people.forEach(person => {
+
+        if (!person.alive) return;
+
+        // Hunger increases
+        person.hunger += 0.008;
+
+        if (person.hunger > 100) {
+
+            person.hunger = 100;
+
+            person.health -= 0.02;
+        }
+
+        // Decision timer
+        person.decisionTimer--;
+
+        if (person.decisionTimer <= 0) {
+            makeDecision(person);
+        }
+
+        // Player controlled character
+        if (playingAs === person) {
+            return;
+        }
+
+        // NPC movement
+        if (person.decision !== "Resting") {
+
+            person.x +=
+                Math.cos(person.direction) *
+                person.speed;
+
+            person.y +=
+                Math.sin(person.direction) *
+                person.speed;
+        }
+
+        // World boundaries
+        if (person.x < 30) {
+            person.x = 30;
+            person.direction = Math.random() * Math.PI * 2;
+        }
+
+        if (person.x > world.width - 30) {
+            person.x = world.width - 30;
+            person.direction = Math.random() * Math.PI * 2;
+        }
+
+        if (person.y < 30) {
+            person.y = 30;
+            person.direction = Math.random() * Math.PI * 2;
+        }
+
+        if (person.y > world.height - 30) {
+            person.y = world.height - 30;
+            person.direction = Math.random() * Math.PI * 2;
+        }
+
+        // Small recovery
+        if (person.hunger < 40) {
+            person.health = Math.min(
+                100,
+                person.health + 0.005
+            );
+        }
+
+        // Death
+        if (person.health <= 0) {
+
+            person.health = 0;
+            person.alive = false;
+            person.decision = "Dead";
+        }
+    });
 }
 
-function draw() {
-  ctx.clearRect(0,0,W,H);
+// ============================================
+// DRAW WATER
+// ============================================
 
-  ctx.save();
-  ctx.translate(W/2, H/2);
-  ctx.scale(camera.zoom, camera.zoom);
-  ctx.translate(-camera.x, -camera.y);
+function drawWater() {
 
-  // Water
-  ctx.fillStyle = "#4b91c2";
-  ctx.fillRect(0,0,world.width,world.height);
+    ctx.save();
 
-  // Land
-  ctx.fillStyle = "#72a95b";
-  ctx.fillRect(80,70,1640,1060);
+    ctx.fillStyle = "#3187c7";
 
-  // Simple terrain patches
-  for (let i=0;i<35;i++) {
-    ctx.fillStyle = i%2 ? "rgba(255,255,255,.035)" : "rgba(0,0,0,.035)";
-    ctx.beginPath();
-    ctx.arc(rand(120,1680),rand(100,1100),rand(40,130),0,Math.PI*2);
-    ctx.fill();
-  }
+    world.water.forEach(w => {
 
-  // Houses
-  for (const h of world.houses) {
-    ctx.fillStyle = "#d8bd83";
-    ctx.fillRect(h.x-h.s, h.y-h.s*.55, h.s*2, h.s*1.1);
-    ctx.fillStyle = "#8e4e3c";
-    ctx.beginPath();
-    ctx.moveTo(h.x-h.s-4,h.y-h.s*.55);
-    ctx.lineTo(h.x,h.y-h.s*1.25);
-    ctx.lineTo(h.x+h.s+4,h.y-h.s*.55);
-    ctx.closePath();
-    ctx.fill();
-  }
+        ctx.beginPath();
 
-  // Trees
-  for (const t of world.trees) {
-    ctx.fillStyle = "#684c32";
-    ctx.fillRect(t.x-3,t.y+5,6,14);
-    ctx.fillStyle = "#2e713e";
-    ctx.beginPath();
-    ctx.arc(t.x,t.y,t.r,0,Math.PI*2);
-    ctx.fill();
-  }
+        ctx.roundRect(
+            w.x,
+            w.y,
+            w.width,
+            w.height,
+            40
+        );
 
-  // People
-  for (const p of world.people) {
-    const active = p === selected || p === playingAs;
+        ctx.fill();
+    });
 
-    if (active) {
-      ctx.strokeStyle = p === playingAs ? "#ffd54a" : "#fff";
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      ctx.arc(p.x,p.y-12,13,0,Math.PI*2);
-      ctx.stroke();
+    ctx.restore();
+}
+
+// ============================================
+// DRAW TREES
+// ============================================
+
+function drawTrees() {
+
+    world.trees.forEach(tree => {
+
+        // Trunk
+        ctx.fillStyle = "#76502f";
+
+        ctx.fillRect(
+            tree.x - 4,
+            tree.y,
+            8,
+            tree.size
+        );
+
+        // Leaves
+        ctx.fillStyle = "#3d9148";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            tree.x,
+            tree.y,
+            tree.size,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+    });
+}
+
+// ============================================
+// DRAW HOUSES
+// ============================================
+
+function drawHouses() {
+
+    world.houses.forEach(house => {
+
+        // Building
+        ctx.fillStyle = "#d6a66a";
+
+        ctx.fillRect(
+            house.x,
+            house.y,
+            house.width,
+            house.height
+        );
+
+        // Roof
+        ctx.fillStyle = "#9b4637";
+
+        ctx.beginPath();
+
+        ctx.moveTo(
+            house.x - 10,
+            house.y
+        );
+
+        ctx.lineTo(
+            house.x + house.width / 2,
+            house.y - 35
+        );
+
+        ctx.lineTo(
+            house.x + house.width + 10,
+            house.y
+        );
+
+        ctx.closePath();
+
+        ctx.fill();
+
+        // Door
+        ctx.fillStyle = "#573827";
+
+        ctx.fillRect(
+            house.x + house.width / 2 - 8,
+            house.y + house.height - 25,
+            16,
+            25
+        );
+    });
+}
+
+// ============================================
+// DRAW PEOPLE
+// ============================================
+
+function drawPeople() {
+
+    world.people.forEach(person => {
+
+        if (!person.alive) return;
+
+        const isSelected =
+            selected === person;
+
+        const isPlayer =
+            playingAs === person;
+
+        // Selection ring
+        if (isSelected || isPlayer) {
+
+            ctx.strokeStyle =
+                isPlayer ? "#ffd700" : "#ffffff";
+
+            ctx.lineWidth = 3;
+
+            ctx.beginPath();
+
+            ctx.arc(
+                person.x,
+                person.y,
+                17,
+                0,
+                Math.PI * 2
+            );
+
+            ctx.stroke();
+        }
+
+        // Body
+        ctx.fillStyle = person.color;
+
+        ctx.beginPath();
+
+        ctx.arc(
+            person.x,
+            person.y,
+            10,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+        // Head
+        ctx.fillStyle = "#f0b27a";
+
+        ctx.beginPath();
+
+        ctx.arc(
+            person.x,
+            person.y - 13,
+            7,
+            0,
+            Math.PI * 2
+        );
+
+        ctx.fill();
+
+        // Name when selected
+        if (isSelected || isPlayer) {
+
+            ctx.font = "bold 12px Arial";
+            ctx.textAlign = "center";
+
+            ctx.fillStyle = "#ffffff";
+
+            ctx.fillText(
+                person.name,
+                person.x,
+                person.y - 28
+            );
+        }
+    });
+}
+
+// ============================================
+// DRAW WORLD
+// ============================================
+
+function drawWorld() {
+
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.save();
+
+    ctx.scale(camera.zoom, camera.zoom);
+
+    ctx.translate(
+        -camera.x,
+        -camera.y
+    );
+
+    // Ground
+    ctx.fillStyle = "#82b85a";
+
+    ctx.fillRect(
+        0,
+        0,
+        world.width,
+        world.height
+    );
+
+    drawWater();
+    drawTrees();
+    drawHouses();
+    drawPeople();
+
+    ctx.restore();
+}
+
+// ============================================
+// MOUSE / TOUCH SELECTION
+// ============================================
+
+function getWorldPosition(event) {
+
+    const rect =
+        canvas.getBoundingClientRect();
+
+    const x =
+        (event.clientX - rect.left) /
+        camera.zoom +
+        camera.x;
+
+    const y =
+        (event.clientY - rect.top) /
+        camera.zoom +
+        camera.y;
+
+    return { x, y };
+}
+
+function selectPersonAt(x, y) {
+
+    let closest = null;
+    let closestDistance = 30;
+
+    world.people.forEach(person => {
+
+        if (!person.alive) return;
+
+        const d = Math.hypot(
+            person.x - x,
+            person.y - y
+        );
+
+        if (d < closestDistance) {
+
+            closest = person;
+            closestDistance = d;
+        }
+    });
+
+    if (closest) {
+
+        selected = closest;
+
+        updateSelectedUI();
     }
-
-    ctx.fillStyle = "#f1c6a8";
-    ctx.beginPath();
-    ctx.arc(p.x,p.y-12,6,0,Math.PI*2);
-    ctx.fill();
-
-    ctx.fillStyle = p === playingAs ? "#7c3aed" : "#344f9b";
-    ctx.fillRect(p.x-6,p.y-6,12,15);
-
-    ctx.fillStyle = "rgba(0,0,0,.7)";
-    ctx.font = "10px sans-serif";
-    ctx.textAlign = "center";
-    ctx.fillText(p.name,p.x,p.y+23);
-  }
-
-  ctx.restore();
-
-  if (playingAs) {
-    ctx.fillStyle = "rgba(124,58,237,.9)";
-    ctx.fillRect(0,76,W,3);
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 14px sans-serif";
-    ctx.textAlign = "left";
-    ctx.fillText("PLAYING AS " + playingAs.name.toUpperCase(),16,98);
-  }
 }
 
-function loop() {
-  update();
-  draw();
-  requestAnimationFrame(loop);
-}
+canvas.addEventListener("click", event => {
 
-function selectAt(sx, sy) {
-  const p = screenToWorld(sx,sy);
-  let closest = null;
-  let dist = 30 / camera.zoom;
+    const pos = getWorldPosition(event);
 
-  for (const person of world.people) {
-    const d = Math.hypot(person.x-p.x, person.y-person.y*0 + (person.y-12)-p.y);
-    if (d < dist) {
-      closest = person;
-      dist = d;
-    }
-  }
-
-  if (closest) {
-    selected = closest;
-    selectedName.textContent = closest.name;
-    selectedInfo.textContent =
-      `${closest.age} years old • ${closest.job} • Goal: ${closest.goal}`;
-    playCharacterBtn.hidden = false;
-  }
-}
-
-canvas.addEventListener("pointerdown", e => {
-  canvas.setPointerCapture(e.pointerId);
-  selectAt(e.clientX,e.clientY);
+    selectPersonAt(
+        pos.x,
+        pos.y
+    );
 });
 
-godModeBtn.onclick = () => {
-  mode = "god";
-  playingAs = null;
-  godModeBtn.classList.add("active");
-  playModeBtn.classList.remove("active");
-  playCharacterBtn.hidden = true;
-};
+// ============================================
+// SELECTED CHARACTER UI
+// ============================================
 
-playModeBtn.onclick = () => {
-  mode = "play";
-  playModeBtn.classList.add("active");
-  godModeBtn.classList.remove("active");
-  if (selected) {
-    playingAs = selected;
-    playCharacterBtn.hidden = true;
-  }
-};
+function updateSelectedUI() {
 
-playCharacterBtn.onclick = () => {
-  if (selected) {
-    playingAs = selected;
-    mode = "play";
-    playModeBtn.classList.add("active");
-    godModeBtn.classList.remove("active");
-    playCharacterBtn.hidden = true;
-  }
-};
+    if (!selected) {
 
-pauseBtn.onclick = () => {
-  paused = !paused;
-  pauseBtn.textContent = paused ? "▶" : "Ⅱ";
-};
+        if (selectedName)
+            selectedName.textContent = "No character selected";
 
-makeWorld();
-camera.x = world.width/2;
-camera.y = world.height/2;
-loop();
+        if (selectedInfo)
+            selectedInfo.textContent = "";
+
+        return;
+    }
+
+    if (selectedName) {
+
+        selectedName.textContent =
+            selected.name;
+    }
+
+    if (selectedInfo) {
+
+        selectedInfo.innerHTML = `
+            Age: ${Math.floor(selected.age)}<br>
+            Job: ${selected.job}<br>
+            Health: ${Math.floor(selected.health)}%<br>
+            Hunger: ${Math.floor(selected.hunger)}%<br>
+            Happiness: ${Math.floor(selected.happiness)}%<br>
+            Decision: ${selected.decision}
+        `;
+    }
+}
+
+// ============================================
+// PLAY AS CHARACTER
+// ============================================
+
+if (playCharacterBtn) {
+
+    playCharacterBtn.addEventListener(
+        "click",
+        () => {
+
+            if (!selected) return;
+
+            playingAs = selected;
+
+            mode = "character";
+
+            centerCameraOn(playingAs);
+
+            updateButtons();
+        }
+    );
+}
+
+// ============================================
+// GOD MODE
+// ============================================
+
+if (godModeBtn) {
+
+    godModeBtn.addEventListener(
+        "click",
+        () => {
+
+            mode = "god";
+
+            playingAs = null;
+
+            updateButtons();
+        }
+    );
+}
+
+// ============================================
+// PLAY MODE
+// ============================================
+
+if (playModeBtn) {
+
+    playModeBtn.addEventListener(
+        "click",
+        () => {
+
+            mode = "character";
+
+            if (!playingAs && selected) {
+                playingAs = selected;
+            }
+
+            if (playingAs) {
+                centerCameraOn(playingAs);
+            }
+
+            updateButtons();
+        }
+    );
+}
+
+// ============================================
+// PAUSE
+// ============================================
+
+if (pauseBtn) {
+
+    pauseBtn.addEventListener(
+        "click",
+        () => {
+
+            paused = !paused;
+
+            pauseBtn.textContent =
+                paused ? "▶ Resume" : "⏸ Pause";
+        }
+    );
+}
+
+// ============================================
+// KEYBOARD CONTROLS
+// ============================================
+
+const keys = {};
+
+window.addEventListener(
+    "keydown",
+    event => {
+        keys[event.key.toLowerCase()] = true;
+    }
+);
+
+window.addEventListener(
+    "keyup",
+    event => {
+        keys[event.key.toLowerCase()] = false;
+    }
+);
+
+function controlPlayer() {
+
+    if (!playingAs) return;
+
+    let dx = 0;
+    let dy = 0;
+
+    if (keys["w"] || keys["arrowup"]) {
+        dy -= 1;
+    }
+
+    if (keys["s"] || keys["arrowdown"]) {
+        dy += 1;
+    }
+
+    if (keys["a"] || keys["arrowleft"]) {
+        dx -= 1;
+    }
+
+    if (keys["d"] || keys["arrowright"]) {
+        dx += 1;
+    }
+
+    if (dx !== 0 || dy !== 0) {
+
+        const length =
+            Math.hypot(dx, dy);
+
+        dx /= length;
+        dy /= length;
+
+        playingAs.x += dx * 2.5;
+        playingAs.y += dy * 2.5;
+
+        playingAs.direction =
+            Math.atan2(dy, dx);
+
+        playingAs.decision =
+            "Player controlled";
+
+        centerCameraOn(playingAs);
+    }
+}
+
+// ============================================
+// BUTTON DISPLAY
+// ============================================
+
+function updateButtons() {
+
+    if (godModeBtn) {
+
+        godModeBtn.textContent =
+            mode === "god"
+                ? "👑 God Mode: ON"
+                : "👑 God Mode";
+    }
+
+    if (playModeBtn) {
+
+        playModeBtn.textContent =
+            mode === "character"
+                ? "🎮 Character Mode: ON"
+                : "🎮 Character Mode";
+    }
+}
+
+// ============================================
+// GAME LOOP
+// ============================================
+
+function gameLoop() {
+
+    if (!paused) {
+
+        world.time += 1;
+
+        updatePeople();
+
+        controlPlayer();
+    }
+
+    drawWorld();
+
+    updateSelectedUI();
+
+    requestAnimationFrame(gameLoop);
+}
+
+// ============================================
+// START GAME
+// ============================================
+
+generateWorld();
+
+resizeCanvas();
+
+updateButtons();
+
+gameLoop();
+
+console.log("ADONAI WORLD STARTED");
